@@ -45,3 +45,21 @@ def test_invalid_transition():
             InterviewStatus.CREATED,
             InterviewEvent.ANSWER_RECEIVED,
         )
+
+
+def test_question_limit_completes_interview():
+    machine = InterviewStateMachine()
+
+    assert machine.transition(
+        InterviewStatus.NEXT_QUESTION,
+        InterviewEvent.QUESTION_LIMIT_REACHED,
+    ) == InterviewStatus.COMPLETED
+
+
+def test_cancel_is_allowed_from_any_active_state():
+    machine = InterviewStateMachine()
+
+    assert machine.transition(
+        InterviewStatus.WAITING_FOR_ANSWER,
+        InterviewEvent.CANCEL,
+    ) == InterviewStatus.CANCELLED

@@ -52,6 +52,12 @@ class InterviewStateMachine:
         ):
             return InterviewStatus.ASKING
 
+        if (
+            current_status == InterviewStatus.NEXT_QUESTION
+            and event == InterviewEvent.QUESTION_LIMIT_REACHED
+        ):
+            return InterviewStatus.COMPLETED
+
         if event == InterviewEvent.CANCEL:
             return InterviewStatus.CANCELLED
 
