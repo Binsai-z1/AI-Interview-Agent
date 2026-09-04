@@ -1,18 +1,21 @@
 import uuid
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
+from sqlalchemy.orm import Session
 
 from app.agent.interview_agent import InterviewAgent
 from app.api_models import (
     CreateSessionRequest,
     CreateSessionResponse,
+    GetSessionResponse,
     SendMessageRequest,
     SendMessageResponse,
-    GetSessionResponse,
 )
+from app.db.database import get_db
+from app.db.repository import InterviewSessionRepository
 from app.domain.session import InterviewSession
 from app.llm.gemini_client import GeminiClient
-from fastapi.responses import StreamingResponse
 
 
 app = FastAPI(
@@ -21,10 +24,7 @@ app = FastAPI(
     version="1.0.0",
 )
 
-
 agent = InterviewAgent(GeminiClient())
-
-sessions: dict[str, InterviewSession] = {}
 
 
 @app.get("/health")
@@ -33,13 +33,17 @@ def health_check():
 
 
 @app.post("/sessions", response_model=CreateSessionResponse)
-def create_session(request: CreateSessionRequest):
+def create_session(
+    request: CreateSessionRequest,
+    db: Session = Depends(get_db),
+):
     session = InterviewSession(
         session_id=str(uuid.uuid4()),
         target_question_count=request.target_question_count,
     )
 
-    sessions[session.session_id] = session
+    repository = InterviewSessionRepository(db)
+    repository.create(session)
 
     return CreateSessionResponse(
         session_id=session.session_id,
@@ -48,60 +52,16 @@ def create_session(request: CreateSessionRequest):
     )
 
 
-@app.post(
-    "/sessions/{session_id}/messages",
-    response_model=SendMessageResponse,
-)
-def send_message(
-    session_id: str,
-    request: SendMessageRequest,
-):
-    session = sessions.get(session_id)
-
-    if session is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Session 不存在",
-        )
-
-    response = agent.handle_message(
-        session,
-        request.message,
-    )
-
-    return SendMessageResponse(
-        session_id=session.session_id,
-        status=session.status.value,
-        response=response,
-    )
-
-@app.post("/sessions/{session_id}/messages/stream")
-def send_message_stream(
-    session_id: str,
-    request: SendMessageRequest,
-):
-    session = sessions.get(session_id)
-
-    if session is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Session 不存在",
-        )
-
-    return StreamingResponse(
-        agent.handle_message_stream(
-            session,
-            request.message,
-        ),
-        media_type="text/plain",
-    )
-
 @app.get(
     "/sessions/{session_id}",
     response_model=GetSessionResponse,
 )
-def get_session(session_id: str):
-    session = sessions.get(session_id)
+def get_session(
+    session_id: str,
+    db: Session = Depends(get_db),
+):
+    repository = InterviewSessionRepository(db)
+    session = repository.get_by_session_id(session_id)
 
     if session is None:
         raise HTTPException(
@@ -119,4 +79,66 @@ def get_session(session_id: str):
         follow_up_count=session.follow_up_count,
         history=session.history,
         last_evaluation=session.last_evaluation,
+    )
+
+
+@app.post(
+    "/sessions/{session_id}/messages",
+    response_model=SendMessageResponse,
+)
+def send_message(
+    session_id: str,
+    request: SendMessageRequest,
+    db: Session = Depends(get_db),
+):
+    repository = InterviewSessionRepository(db)
+
+    session = repository.get_by_session_id(session_id)
+
+    if session is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Session 不存在",
+        )
+
+    response = agent.handle_message(
+        session,
+        request.message,
+    )
+
+    repository.update(session)
+
+    return SendMessageResponse(
+        session_id=session.session_id,
+        status=session.status.value,
+        response=response,
+    )
+
+
+@app.post("/sessions/{session_id}/messages/stream")
+def send_message_stream(
+    session_id: str,
+    request: SendMessageRequest,
+    db: Session = Depends(get_db),
+):
+    repository = InterviewSessionRepository(db)
+
+    session = repository.get_by_session_id(session_id)
+
+    if session is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Session 不存在",
+        )
+
+    response = agent.handle_message(
+        session,
+        request.message,
+    )
+
+    repository.update(session)
+
+    return StreamingResponse(
+        agent._stream_text(response),
+        media_type="text/plain",
     )

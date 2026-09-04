@@ -214,3 +214,37 @@ def test_send_message_stream():
     assert response.status_code == 200
     assert response.text
     assert "RAG" in response.text
+
+def test_session_persists_through_api():
+    create_response = client.post(
+        "/sessions",
+        json={"target_question_count": 3},
+    )
+
+    assert create_response.status_code == 200
+
+    session_id = create_response.json()["session_id"]
+
+    # 开始面试
+    start_response = client.post(
+        f"/sessions/{session_id}/messages",
+        json={"message": "开始面试"},
+    )
+
+    assert start_response.status_code == 200
+    assert start_response.json()["status"] == "waiting_for_answer"
+
+    # 重新通过 GET API 查询
+    get_response = client.get(
+        f"/sessions/{session_id}"
+    )
+
+    assert get_response.status_code == 200
+
+    data = get_response.json()
+
+    assert data["session_id"] == session_id
+    assert data["status"] == "waiting_for_answer"
+    assert data["question_count"] == 1
+    assert data["current_question"]
+    assert len(data["history"]) >= 1
