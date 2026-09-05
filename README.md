@@ -1,9 +1,15 @@
-AI Interview Agent
-An engineering-oriented AI technical interview simulator built with LangGraph, FastAPI, Gemini, React, SSE, MCP, Tool Calling, SQLite, and Docker.
+# AI Interview Agent
+
+An engineering-oriented AI technical interview simulator built with **LangGraph, FastAPI, Gemini, React, SSE, MCP, Tool Calling, SQLite, and Docker**.
+
 AI Interview Agent is a full-stack AI application designed to simulate technical interviews for AI application engineering roles.
-Instead of treating the system as a simple LLM chatbot, the project models an interview as a stateful workflow with explicit domain states, agent orchestration, structured evaluation, tool calling, persistence, streaming responses, and a web interface.
-✨ Features
-Interview Workflow
+
+Instead of treating the system as a simple LLM chatbot, the project models an interview as a **stateful workflow** with explicit domain states, agent orchestration, structured evaluation, tool calling, persistence, streaming responses, and a web interface.
+
+## ✨ Features
+
+### Interview Workflow
+
 - Create an interview session
 - Start a technical interview
 - Ask AI engineering questions
@@ -13,7 +19,9 @@ Interview Workflow
 - Move to the next question
 - Track question and follow-up counts
 - Complete or cancel an interview
-AI / Agent Capabilities
+
+### AI / Agent Capabilities
+
 - LangGraph-based agent workflow
 - Intent detection
 - Structured answer evaluation
@@ -23,7 +31,9 @@ AI / Agent Capabilities
 - MCP integration
 - Gemini LLM integration
 - Streaming LLM responses
-Backend
+
+### Backend
+
 - FastAPI
 - REST API
 - Server-Sent Events (SSE)
@@ -32,7 +42,9 @@ Backend
 - Exception handling
 - Repository pattern
 - Pydantic models
-Frontend
+
+### Frontend
+
 - React
 - TypeScript
 - Vite
@@ -40,14 +52,20 @@ Frontend
 - Interview session UI
 - Conversation history
 - Interview status display
-Deployment
+
+### Deployment
+
 - Docker
 - Docker Compose
 - Multi-stage frontend build
 - Nginx reverse proxy
 - Persistent SQLite volume
 - Backend / frontend container separation
-🏗️ Architecture
+
+---
+
+## 🏗️ Architecture
+
 ```mermaid
 flowchart TB
     UI["React UI<br/>TypeScript + Vite"]
@@ -76,8 +94,7 @@ flowchart TB
     MCP --> LLM
 
     API --> DB
-```
-The system separates the application into several layers:
+The system is organized into several layers:
 Frontend
     ↓
 Nginx
@@ -91,9 +108,9 @@ LangGraph
 LLM / Structured Output / Tools / MCP
     ↓
 SQLite
-This separation keeps domain logic, agent orchestration, infrastructure, and presentation concerns independent.
+This separation keeps domain logic, agent orchestration, infrastructure, and presentation concerns relatively independent.
 🔄 Interview State Machine
-The interview is modeled as an explicit state machine rather than a collection of loosely connected LLM calls.
+The interview lifecycle is modeled as an explicit state machine rather than a collection of loosely connected LLM calls.
 ```mermaid
 stateDiagram-v2
     [*] --> CREATED
@@ -117,7 +134,7 @@ stateDiagram-v2
     FOLLOW_UP --> CANCELLED: CANCEL
     NEXT_QUESTION --> CANCELLED: CANCEL
 ```
-Core interview states include:
+Core interview states:
 - CREATED
 - ASKING
 - WAITING_FOR_ANSWER
@@ -128,7 +145,7 @@ Core interview states include:
 - CANCELLED
 The state machine makes interview transitions explicit and testable.
 🤖 Agent Workflow
-The LangGraph workflow coordinates the interview process.
+LangGraph coordinates the execution flow of the interview.
 ```mermaid
 flowchart TD
     START["User Message"]
@@ -161,21 +178,21 @@ flowchart TD
     UNKNOWN --> END
     COMPLETE --> END
 ```
-LangGraph is responsible for orchestration, while the domain state machine defines the valid interview transitions.
-This separation allows the project to combine:
-- deterministic domain rules
-- graph-based orchestration
+LangGraph handles agent orchestration, while the domain state machine defines valid interview state transitions.
+This allows the project to combine:
+- Deterministic domain rules
+- Graph-based orchestration
 - LLM reasoning
-- tool execution
-- persistent session state
+- Tool execution
+- Persistent session state
 🧠 Structured Output
 Answer evaluation uses structured LLM output instead of relying on free-form text parsing.
-The evaluator produces information such as:
+The evaluator produces:
 decision
 score
 reason
 missing_points
-Example conceptual output:
+Example:
 {
   "decision": "follow_up",
   "score": 7,
@@ -185,20 +202,17 @@ Example conceptual output:
     "chunking considerations"
   ]
 }
-This makes the evaluation result directly usable by the agent workflow.
-The decision determines whether the interview should:
-evaluate answer
-      ↓
- ┌───────────────┐
- │               │
-follow_up    next_question
- │               │
- ↓               ↓
-Follow-up     Next Question
-🛠️ Tool Calling
-The agent can use a Question Bank tool to retrieve interview questions.
-The tool is responsible for selecting questions while considering previously asked questions.
+The structured evaluation result is then used by the agent workflow to determine the next action.
 Conceptually:
+Evaluate Answer
+       ↓
+Decision
+   ↙       ↘
+Follow-up  Next Question
+🛠️ Tool Calling
+The agent can use a Question Bank Tool to retrieve interview questions.
+The Question Bank considers previously asked questions when selecting the next question.
+The overall flow is:
 Interview Agent
       ↓
 Question Bank Tool
@@ -206,56 +220,55 @@ Question Bank Tool
 Question Selection
       ↓
 Next Interview Question
-This demonstrates how an LLM agent can combine reasoning with deterministic application tools instead of generating every piece of information directly.
+This demonstrates how an LLM agent can combine reasoning with deterministic application tools instead of putting all question-selection logic inside prompts.
 🔌 MCP
-The project also includes an MCP client/server implementation for practicing the Model Context Protocol.
+The project includes an MCP client/server implementation for practicing the Model Context Protocol.
 The MCP layer demonstrates how external capabilities can be exposed as tools that an agent can interact with.
-This provides hands-on experience with:
+Practice areas include:
 - MCP client/server architecture
-- tool discovery
-- tool invocation
-- agent-to-tool interaction
+- Tool discovery
+- Tool invocation
+- Agent-to-tool interaction
 🌊 Streaming
 The backend supports Server-Sent Events (SSE) for real-time responses.
-React
-  │
-  │ POST /sessions/{id}/messages/stream
-  ▼
-FastAPI
-  │
-  ▼
-Interview Agent
-  │
-  ▼
-LLM Streaming
-  │
-  │ token
-  │ token
-  │ token
-  ▼
-SSE
-  │
-  ▼
-React UI
-Instead of waiting for the entire LLM response, the frontend receives generated content incrementally.
-The streaming pipeline is implemented across:
+```mermaid
+sequenceDiagram
+    participant UI as React UI
+    participant API as FastAPI
+    participant Agent as Interview Agent
+    participant LLM as Gemini LLM
+
+    UI->>API: POST /messages/stream
+    API->>Agent: Handle message
+    Agent->>LLM: Generate stream
+
+    loop Streaming
+        LLM-->>Agent: Token
+        Agent-->>API: Chunk
+        API-->>UI: SSE token
+    end
+
+    API-->>UI: SSE done
+```
+The complete streaming pipeline includes:
 - Gemini streaming
 - Agent streaming
 - FastAPI SSE
 - React SSE parsing
+Users can therefore receive generated content incrementally instead of waiting for the complete response.
 💾 Persistence
-Interview sessions are persisted with SQLite.
+Interview sessions are persisted using SQLite.
 Persistent information includes:
-- session ID
-- interview status
-- target question count
-- question count
-- current question
-- current answer
-- follow-up count
-- interview history
-- latest evaluation
-The application uses a repository layer to separate persistence logic from the rest of the application.
+- Session ID
+- Interview status
+- Target question count
+- Question count
+- Current question
+- Current answer
+- Follow-up count
+- Interview history
+- Latest evaluation
+The application uses a Repository Layer to separate persistence logic from the rest of the application.
 FastAPI
    ↓
 Repository
@@ -263,7 +276,7 @@ Repository
 SQLAlchemy
    ↓
 SQLite
-This also allows an interview session to be recovered after the application process restarts.
+This allows interview sessions to be recovered after the application process restarts.
 🔌 API
 Health Check
 GET /health
@@ -291,60 +304,50 @@ The frontend is implemented with:
 - Vite
 - SSE
 The frontend communicates with the backend through the /api path.
-In the Docker environment:
-Browser
-   ↓
-Nginx :80
-   ↓
-FastAPI :8000
-Nginx acts as the reverse proxy between the browser and backend container.
+In the Docker environment, Nginx acts as the reverse proxy between the browser and backend container.
+```mermaid
+flowchart LR
+    B["Browser"]
+    N["Nginx :80"]
+    A["FastAPI :8000"]
+
+    B --> N
+    N --> A
+```
 🐳 Docker
 The project provides Docker configuration for both backend and frontend.
 Backend
 The backend image uses:
-Python 3.12
-FastAPI
-Uvicorn
+- Python 3.12
+- FastAPI
+- Uvicorn
 Frontend
 The frontend uses a multi-stage Docker build:
 Node.js
    ↓
 npm build
    ↓
-Static files
+Static Files
    ↓
 Nginx
 Docker Compose
 The complete application can be started with:
 docker compose up --build
-The architecture is:
-┌──────────────────────────────┐
-│          Browser             │
-└──────────────┬───────────────┘
-               │
-               ▼
-┌──────────────────────────────┐
-│       Frontend Container     │
-│            Nginx             │
-│             :80              │
-└──────────────┬───────────────┘
-               │
-               │ /api
-               ▼
-┌──────────────────────────────┐
-│       Backend Container      │
-│          FastAPI             │
-│            :8000             │
-└──────────────┬───────────────┘
-               │
-               ▼
-┌──────────────────────────────┐
-│            SQLite            │
-│       Persistent Volume      │
-└──────────────────────────────┘
+Container architecture:
+```mermaid
+flowchart TB
+    B["Browser"]
+    F["Frontend Container<br/>Nginx :80"]
+    BE["Backend Container<br/>FastAPI :8000"]
+    DB["SQLite<br/>Persistent Volume"]
+
+    B --> F
+    F -->|"/api"| BE
+    BE --> DB
+```
 🚀 Local Development
 Backend
-Create and activate a Python virtual environment:
+Create a Python virtual environment:
 python -m venv .venv
 Windows:
 .venv\Scripts\activate
@@ -376,7 +379,7 @@ The project includes unit and integration tests covering areas such as:
 - Gemini client
 - Streaming
 - Tool Calling
-Run the non-integration test suite with:
+Run the non-integration test suite:
 python -m pytest -m "not integration"
 Integration tests that depend on external LLM services may require valid API credentials and available model quota.
 📁 Project Structure
@@ -512,26 +515,33 @@ Potential future extensions include:
 Completed — Phase 0 through Phase 7
 The project currently provides a complete full-stack AI interview simulation system with:
 Domain Modeling
-      +
++
 State Machine
-      +
++
 LLM
-      +
++
 Structured Output
-      +
++
 LangGraph
-      +
++
 Tool Calling
-      +
++
 MCP
-      +
++
 SSE Streaming
-      +
++
 Persistence
-      +
++
 React
-      +
++
 Docker
-The project is designed as an engineering-oriented portfolio project for learning and demonstrating AI application development, backend engineering, agent orchestration, and LLM integration.
-📄 License
-MIT License
+The project is designed as an engineering-oriented portfolio project for learning and demonstrating:
+- AI application development
+- Backend engineering
+- LLM integration
+- Agent orchestration
+- Structured output
+- Tool Calling
+- MCP
+- Streaming architecture
+- Containerized deployment
