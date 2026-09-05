@@ -94,20 +94,26 @@ flowchart TB
     MCP --> LLM
 
     API --> DB
+```
+
 The system is organized into several layers:
+
+```text
 Frontend
-    ↓
+   ↓
 Nginx
-    ↓
+   ↓
 FastAPI
-    ↓
+   ↓
 Interview Agent
-    ↓
+   ↓
 LangGraph
-    ↓
+   ↓
 LLM / Structured Output / Tools / MCP
-    ↓
+   ↓
 SQLite
+```
+
 This separation keeps domain logic, agent orchestration, infrastructure, and presentation concerns relatively independent.
 🔄 Interview State Machine
 The interview lifecycle is modeled as an explicit state machine rather than a collection of loosely connected LLM calls.
@@ -193,6 +199,8 @@ score
 reason
 missing_points
 Example:
+
+```json
 {
   "decision": "follow_up",
   "score": 7,
@@ -202,17 +210,25 @@ Example:
     "chunking considerations"
   ]
 }
+```
+
 The structured evaluation result is then used by the agent workflow to determine the next action.
+
 Conceptually:
+
+```text
 Evaluate Answer
        ↓
-Decision
-   ↙       ↘
+   Decision
+    ↙     ↘
 Follow-up  Next Question
+```
 🛠️ Tool Calling
 The agent can use a Question Bank Tool to retrieve interview questions.
 The Question Bank considers previously asked questions when selecting the next question.
 The overall flow is:
+
+```text
 Interview Agent
       ↓
 Question Bank Tool
@@ -220,6 +236,8 @@ Question Bank Tool
 Question Selection
       ↓
 Next Interview Question
+```
+
 This demonstrates how an LLM agent can combine reasoning with deterministic application tools instead of putting all question-selection logic inside prompts.
 🔌 MCP
 The project includes an MCP client/server implementation for practicing the Model Context Protocol.
@@ -269,6 +287,8 @@ Persistent information includes:
 - Interview history
 - Latest evaluation
 The application uses a Repository Layer to separate persistence logic from the rest of the application.
+
+```text
 FastAPI
    ↓
 Repository
@@ -276,6 +296,8 @@ Repository
 SQLAlchemy
    ↓
 SQLite
+```
+
 This allows interview sessions to be recovered after the application process restarts.
 🔌 API
 Health Check
@@ -382,9 +404,10 @@ The project includes unit and integration tests covering areas such as:
 Run the non-integration test suite:
 python -m pytest -m "not integration"
 Integration tests that depend on external LLM services may require valid API credentials and available model quota.
-📁 Project Structure
+## 📁 Project Structure
+
+```text
 AI-Interview-Agent/
-│
 ├── app/
 │   ├── agent/
 │   │   ├── evaluator.py
@@ -440,7 +463,6 @@ AI-Interview-Agent/
 │   └── vite.config.ts
 │
 ├── tests/
-│
 ├── docs/
 │   └── image/
 │
@@ -450,24 +472,27 @@ AI-Interview-Agent/
 ├── README.md
 ├── README.zh-CN.md
 └── .dockerignore
+```
 🧰 Tech Stack
-Category	Technology
-Language	Python, TypeScript
-Backend	FastAPI
-Agent Framework	LangGraph
-LLM	Google Gemini
-Structured Output	Pydantic
-Tool Calling	Gemini Tool Calling
-Protocol	MCP
-Streaming	Server-Sent Events
-Frontend	React
-Frontend Tooling	Vite
-Database	SQLite
-ORM	SQLAlchemy
-Containerization	Docker
-Reverse Proxy	Nginx
-Testing	Pytest
+## 🧰 Tech Stack
 
+| Category | Technology |
+|---|---|
+| Language | Python, TypeScript |
+| Backend | FastAPI |
+| Agent Framework | LangGraph |
+| LLM | Google Gemini |
+| Structured Output | Pydantic |
+| Tool Calling | Gemini Tool Calling |
+| Protocol | MCP |
+| Streaming | Server-Sent Events |
+| Frontend | React |
+| Frontend Tooling | Vite |
+| Database | SQLite |
+| ORM | SQLAlchemy |
+| Containerization | Docker |
+| Reverse Proxy | Nginx |
+| Testing | Pytest |
 
 🎯 Engineering Highlights
 This project focuses on AI application engineering rather than simply calling an LLM API.
@@ -511,31 +536,26 @@ Potential future extensions include:
 - Production cloud deployment
 - CI/CD pipeline
 - More MCP-based external tools
-📌 Project Status
-Completed — Phase 0 through Phase 7
+## 📌 Project Status
+
+**Completed — Phase 0 through Phase 7**
+
 The project currently provides a complete full-stack AI interview simulation system with:
-Domain Modeling
-+
-State Machine
-+
-LLM
-+
-Structured Output
-+
-LangGraph
-+
-Tool Calling
-+
-MCP
-+
-SSE Streaming
-+
-Persistence
-+
-React
-+
-Docker
+
+- Domain Modeling
+- State Machine
+- LLM Integration
+- Structured Output
+- LangGraph
+- Tool Calling
+- MCP
+- SSE Streaming
+- Persistence
+- React
+- Docker
+
 The project is designed as an engineering-oriented portfolio project for learning and demonstrating:
+
 - AI application development
 - Backend engineering
 - LLM integration
