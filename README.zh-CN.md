@@ -1,52 +1,52 @@
 AI Interview Agent
-An engineering-oriented AI technical interview simulator built with LangGraph, FastAPI, Gemini, React, SSE, MCP, Tool Calling, SQLite, and Docker.
+一个面向 AI 应用开发岗位的工程化 AI 技术面试模拟 Agent，基于 LangGraph、FastAPI、Gemini、React、SSE、MCP、Tool Calling、SQLite 和 Docker 构建。
 
-AI Interview Agent is a full-stack AI application designed to simulate technical interviews for AI application engineering roles.
-Instead of treating the project as a simple LLM chatbot, the system models an interview as a stateful workflow with explicit domain states, agent orchestration, structured evaluation, tool calling, persistence, streaming responses, and a web interface.
-✨ Features
-Interview Workflow
-- Create an interview session
-- Start a technical interview
-- Ask AI engineering questions
-- Receive candidate answers
-- Evaluate answers with structured output
-- Decide whether to ask a follow-up question
-- Move to the next question
-- Track question and follow-up counts
-- Complete or cancel an interview
-AI / Agent Capabilities
-- LangGraph-based agent workflow
-- Intent detection
-- Structured LLM output with Pydantic
-- Gemini-powered interview evaluation
-- Native streaming generation
+AI Interview Agent 是一个全栈 AI 应用，用于模拟 AI 应用开发相关技术岗位的面试过程。
+本项目并不是简单的 LLM Chatbot，而是将一次完整的技术面试建模为一个有状态的 Agent Workflow，通过显式的领域状态、Agent 编排、结构化评估、Tool Calling、持久化、流式响应和 Web 前端共同实现完整的面试流程。
+✨ 核心功能
+面试流程
+- 创建面试 Session
+- 开始技术面试
+- AI 自动提出技术问题
+- 接收候选人回答
+- 使用结构化输出评价回答
+- 根据回答决定是否追问
+- 自动进入下一道问题
+- 记录问题数量和追问数量
+- 完成或取消面试
+AI / Agent 能力
+- 基于 LangGraph 的 Agent Workflow
+- 用户意图识别
+- 基于 Pydantic 的 Structured Output
+- Gemini 驱动的回答评价
+- LLM Streaming
 - Tool Calling
-- Question selection through a dedicated tool
-- MCP client/server implementation
-- LLM abstraction through a common protocol
+- 通过 Tool 进行面试题选择
+- MCP Client / Server
+- 统一的 LLM Client 抽象层
 Backend
 - FastAPI
 - REST API
-- Server-Sent Events (SSE)
-- SQLite persistence
+- Server-Sent Events（SSE）
+- SQLite 持久化
 - SQLAlchemy
-- Session recovery
-- Domain-driven state machine
-- Explicit error handling
+- Session Recovery
+- Domain State Machine
+- 异常处理
 Frontend
 - React
 - TypeScript
 - Vite
-- Streaming interview responses
-- Session-based interview UI
+- 面试回答流式显示
+- 基于 Session 的面试界面
 Deployment
 - Docker
 - Docker Compose
-- Multi-stage frontend build
-- Nginx reverse proxy
-- Persistent SQLite volume
-- Backend/frontend container separation
-🏗️ Architecture
+- Frontend Multi-stage Build
+- Nginx Reverse Proxy
+- SQLite Persistent Volume
+- 前后端容器分离
+🏗️ 系统架构
                     ┌──────────────────────┐
                     │      React UI        │
                     │  TypeScript + Vite   │
@@ -101,8 +101,8 @@ Deployment
                     │ History              │
                     │ Evaluation Results   │
                     └──────────────────────┘
-🔄 Interview State Machine
-The interview is modeled as an explicit state machine rather than relying entirely on implicit LLM behavior.
+🔄 面试状态机
+项目没有完全依赖 LLM 的隐式行为，而是通过显式状态机管理面试生命周期。
 CREATED
    │
    │ START_INTERVIEW
@@ -132,10 +132,14 @@ EVALUATING
                                                    │ NEXT_QUESTION_READY
                                                    ▼
                                                 ASKING
-The state machine makes interview transitions explicit and testable.
+通过显式的 State 和 Event，可以让面试流程更加：
+- 可控
+- 可测试
+- 可维护
+- 容易扩展
 🤖 Agent Workflow
-The runtime is implemented as a LangGraph workflow.
-A simplified flow looks like:
+Agent Runtime 使用 LangGraph 构建。
+简化后的流程：
 User Message
      │
      ▼
@@ -165,46 +169,58 @@ Intent Detection
                    │
                    ▼
              Question Bank
-This separates:
-- domain state
-- agent orchestration
-- LLM interaction
-- tool execution
-- persistence
-- API transport
-instead of putting all logic into a single chatbot function.
+系统将以下职责进行分离：
+Domain
+Agent
+Graph
+LLM
+Tools
+Persistence
+API
+Frontend
+避免将整个面试逻辑集中在一个 Chatbot 或 API Endpoint 中。
 🧠 Structured Output
-Answer evaluation uses a typed Pydantic model.
-The evaluator returns structured information such as:
+回答评价使用 Pydantic 定义结构化模型。
+评价结果包含：
 decision
 score
 reason
 missing_points
-Example:
+例如：
 {
   "decision": "follow_up",
   "score": 6,
-  "reason": "The answer identifies the basic concept but does not explain the retrieval pipeline.",
+  "reason": "回答包含基本概念，但没有完整解释 RAG 的检索流程。",
   "missing_points": [
     "Embedding generation",
     "Vector similarity search",
     "Context injection"
   ]
 }
-The application logic then makes the follow-up / next-question decision based on structured data rather than parsing arbitrary natural-language responses.
+应用逻辑直接基于结构化结果判断：
+follow_up
+     │
+     ▼
+继续追问
+
+next_question
+     │
+     ▼
+进入下一题
+而不是依赖字符串解析 LLM 的自然语言回答。
 🔧 Tool Calling
-The next-question workflow uses a dedicated interview-question tool:
+下一道面试题的选择通过专门的 Tool 完成：
 get_interview_question(
     topic,
     difficulty,
     excluded_questions
 )
-The tool can:
-- select questions by topic
-- select questions by difficulty
-- exclude previously asked questions
-The LLM therefore does not need to contain the entire question-selection mechanism inside the prompt.
-Instead:
+Tool 可以：
+- 根据 Topic 选择问题
+- 根据 Difficulty 选择问题
+- 排除已经问过的问题
+因此，问题选择逻辑并不需要全部写进 Prompt。
+整体流程：
 LLM
  │
  │ Tool Call
@@ -223,10 +239,10 @@ LLM
  ▼
 Next Interview Question
 🔌 MCP
-The project also includes an MCP client/server implementation as part of the agent engineering exploration.
-The MCP layer is separated from the core interview domain so that external capabilities can be integrated without coupling them directly to the domain model.
+项目包含 MCP Client / Server 实现，用于实践 Agent 与外部能力之间的标准化连接方式。
+MCP 层与核心 Interview Domain 保持分离，使外部能力可以在不直接耦合领域模型的情况下进行扩展。
 ⚡ Streaming
-Interview responses are streamed from the backend to the frontend using Server-Sent Events.
+面试官的回答通过 Server-Sent Events（SSE）从后端实时传输到前端。
 Gemini
   │
   │ token stream
@@ -244,20 +260,20 @@ Nginx
 React
   │
   ▼
-Incremental UI update
-The frontend parses SSE events such as:
+Incremental UI Update
+前端接收类似以下 SSE Event：
 event: token
 data: {"content":"..."}
 
 event: done
 data: {"status":"..."}
-This allows the interviewer response to appear progressively instead of waiting for the entire LLM response.
-💾 Persistence
-Interview sessions are persisted using:
+因此用户无需等待完整 LLM Response 生成完成，就可以看到面试官逐步输出的内容。
+💾 数据持久化
+面试 Session 使用以下技术进行持久化：
 - SQLite
 - SQLAlchemy
-- Repository pattern
-The session stores information including:
+- Repository Pattern
+Session 保存的信息包括：
 session_id
 status
 target_question_count
@@ -267,45 +283,59 @@ current_answer
 follow_up_count
 history
 last_evaluation
-This allows the system to recover an existing interview session instead of keeping the entire state only in application memory.
+这样面试状态不会完全依赖进程内存，可以支持已有 Session 的恢复。
 🌐 API
 Health Check
 GET /health
-Response:
+返回：
 {
   "status": "ok"
 }
-Create Session
+创建 Session
 POST /sessions
-Example request:
+请求示例：
 {
   "target_question_count": 5
 }
-Get Session
+获取 Session
 GET /sessions/{session_id}
-Send Message
+发送消息
 POST /sessions/{session_id}/messages
-Example:
+请求示例：
 {
-  "message": "What is RAG?"
+  "message": "什么是 RAG？"
 }
 Streaming Message
 POST /sessions/{session_id}/messages/stream
-The endpoint returns an SSE stream containing:
+该接口通过 SSE 返回：
 - token
 - done
 - error
 🖥️ Frontend
-The frontend is implemented with:
+前端使用：
 - React
 - TypeScript
 - Vite
-The frontend communicates with the backend through:
+Frontend 通过：
 /api/*
-In Docker deployment, Nginx forwards /api/ requests to the FastAPI backend.
-This keeps the browser-facing application under a single origin.
+访问 Backend API。
+Docker 部署时由 Nginx 将：
+/api/*
+转发到 FastAPI Backend。
+因此浏览器只需要访问一个 Origin：
+Browser
+   │
+   ▼
+Nginx
+ ┌─┴───────────────┐
+ │                 │
+ ▼                 ▼
+Frontend          /api/*
+                    │
+                    ▼
+                 FastAPI
 🐳 Docker
-The project supports running the full application with Docker Compose.
+项目支持通过 Docker Compose 启动完整应用。
                  Docker Compose
                        │
           ┌────────────┴────────────┐
@@ -322,56 +352,56 @@ The project supports running the full application with Docker Compose.
                      │
                      ▼
                  SQLite DB
-Start
-Create .env:
+启动
+创建 .env：
 GEMINI_API_KEY=your_gemini_api_key
-Then:
+然后执行：
 docker compose up --build
-The application will be available at:
+应用：
 http://localhost
-Backend health check:
+Backend Health Check：
 http://localhost:8000/health
-Through the frontend reverse proxy:
+通过 Nginx：
 http://localhost/api/health
-Stop
+停止
 docker compose down
-The SQLite database is stored in a Docker volume:
+SQLite 数据保存在 Docker Volume：
 interview_data
-so the database is not tied to the lifecycle of the backend container.
-💻 Local Development
+因此数据库不会随着 Backend Container 删除而消失。
+💻 本地开发
 Backend
-Create and activate a Python virtual environment:
+创建 Python Virtual Environment：
 python -m venv .venv
-Windows:
+Windows：
 .venv\Scripts\Activate.ps1
-macOS / Linux:
+macOS / Linux：
 source .venv/bin/activate
-Install dependencies:
+安装依赖：
 pip install -r requirements.txt
-Create .env:
+创建 .env：
 GEMINI_API_KEY=your_gemini_api_key
-Start the backend:
+启动 Backend：
 uvicorn app.main:app --reload
-Backend:
+Backend：
 http://127.0.0.1:8000
-API documentation:
+API Documentation：
 http://127.0.0.1:8000/docs
 Frontend
 cd frontend
 npm install
 npm run dev
-Frontend:
+Frontend：
 http://localhost:5173
-🧪 Testing
-The project uses pytest.
-Run the normal test suite:
+🧪 测试
+项目使用 pytest。
+运行本地测试：
 python -m pytest -m "not integration"
-Run all tests:
+运行全部测试：
 python -m pytest
-Integration tests that call external LLM APIs are marked separately:
+需要调用外部 LLM API 的测试单独标记为：
 @pytest.mark.integration
-This keeps local development tests independent from external API availability and quota.
-📁 Project Structure
+这样本地测试不会因为外部 API 的可用性、Quota 或网络问题而全部受到影响。
+📁 项目结构
 AI-Interview-Agent/
 │
 ├── app/
@@ -444,7 +474,7 @@ AI-Interview-Agent/
 ├── .dockerignore
 ├── .gitignore
 └── README.md
-🛠️ Tech Stack
+🛠️ 技术栈
 Backend
 - Python
 - FastAPI
@@ -468,13 +498,13 @@ Infrastructure
 - Nginx
 Testing
 - pytest
-🎯 Engineering Highlights
-This project focuses on the engineering challenges behind an AI application rather than only the LLM prompt itself.
-1. Explicit Domain Modeling
-Interview status and events are represented as explicit domain models.
-This makes the workflow deterministic and testable.
+🎯 工程化亮点
+本项目重点关注的是 AI Application Engineering，而不仅仅是 Prompt Engineering。
+1. 显式 Domain Modeling
+Interview Status 和 Event 使用独立的 Domain Model 表示。
+这样可以让面试流程保持确定性，并且方便测试。
 2. Separation of Concerns
-The system separates:
+项目将系统拆分为：
 Domain
 Agent
 Graph
@@ -483,103 +513,109 @@ Tools
 Persistence
 API
 Frontend
-instead of placing all application logic inside a single endpoint.
+而不是把所有业务逻辑集中在单个 API Endpoint 中。
 3. LLM Abstraction
-LLM interactions are exposed through a common client protocol supporting:
+LLM 通过统一的 Client Protocol 提供：
 generate()
 generate_structured()
 generate_stream()
 generate_with_tools()
 generate_with_tools_stream()
-This reduces coupling between the agent runtime and a specific LLM provider.
+降低 Agent Runtime 与具体 LLM Provider 之间的耦合。
 4. Structured Decision Making
-The evaluator returns typed structured data rather than requiring the application to parse free-form LLM output.
+Evaluation 使用 Typed Structured Output。
+应用逻辑不需要通过字符串解析来判断 LLM 的最终决策。
 5. Stateful Agent Runtime
-LangGraph is used to model the interview workflow as explicit nodes and transitions.
+使用 LangGraph 将面试流程建模为显式的 Nodes 和 Transitions。
 6. Tool-Based Capability
-Question selection is implemented as a callable tool instead of embedding all question-selection logic into the prompt.
+面试题选择通过 Tool 实现，而不是将所有题目选择逻辑写进 Prompt。
 7. Persistent Sessions
-Interview state is persisted through a repository layer backed by SQLite.
+通过 Repository Layer + SQLite 保存 Interview Session。
 8. Real-Time UX
-SSE connects the LLM token stream with incremental frontend rendering.
+通过 SSE 将 LLM Streaming 与 React UI 连接起来。
 9. Containerized Deployment
-Frontend and backend are packaged independently and orchestrated through Docker Compose.
-📈 Development Roadmap
-The project was developed incrementally:
+Frontend 与 Backend 分别构建 Container，并通过 Docker Compose 进行编排。
+📈 开发路线
+项目按照工程化方式逐阶段完成。
 Phase 0 — Business Modeling
-- Interview session concept
-- Interview lifecycle
-- State machine design
+- Interview Session
+- Interview Lifecycle
+- State Machine Design
 Phase 1 — Domain Core
 - Status
 - Events
 - Session
-- State machine
-- Domain tests
+- State Machine
+- Domain Tests
 Phase 2 — Agent Runtime
-- Intent detection
-- Answer evaluation
-- Follow-up logic
-- Interview loop
+- Intent Detection
+- Answer Evaluation
+- Follow-up Logic
+- Interview Loop
 Phase 3 — Real LLM
-- Gemini integration
-- Structured output
-- LLM abstraction
+- Gemini Integration
+- Structured Output
+- LLM Abstraction
 Phase 4 — API & Streaming
 - FastAPI
 - Session API
-- SSE streaming
+- SSE Streaming
 Phase 5 — Persistence
 - SQLite
 - SQLAlchemy
-- Repository pattern
-- Session recovery
-- Exception handling
+- Repository Pattern
+- Session Recovery
+- Exception Handling
 Phase 6 — Agent Engineering
 - LangGraph
 - MCP
 - Tool Calling
-- Question selection tool
+- Question Selection Tool
 Phase 7 — Productization
-- React frontend
+- React Frontend
 - Docker
 - Docker Compose
-- Nginx reverse proxy
-- GitHub / project documentation
-- Final project polish
-⚠️ API Availability
-The application uses the Gemini API for real LLM inference.
-External API availability, rate limits, quota, and temporary provider-side errors may affect live interview execution.
-The automated test suite therefore separates external integration tests from local tests.
-You need a valid Gemini API key to run the real AI interview flow.
-🚧 Future Improvements
-Potential future improvements include:
-- Authentication and user accounts
-- More comprehensive question banks
-- Retrieval-Augmented Generation for question knowledge
-- Interview difficulty adaptation
-- Better evaluation rubrics
-- Interview analytics dashboard
-- PostgreSQL for production persistence
-- Redis-based session / streaming infrastructure
-- Background job processing
-- Production observability
-- Automated deployment
-- Cloud hosting
-📌 Project Status
-This project is an engineering-focused AI application built as a complete learning and portfolio project.
-The current implementation covers:
-- Domain modeling
-- Stateful agent orchestration
-- LLM integration
-- Structured output
+- Nginx Reverse Proxy
+- GitHub / Project Documentation
+- Final Project Polish
+⚠️ API 可用性
+项目使用 Gemini API 执行真实的 LLM 推理。
+实际运行过程中可能受到以下因素影响：
+- API Availability
+- Rate Limits
+- Quota
+- Temporary Provider Errors
+因此，项目将外部 LLM Integration Tests 与本地测试分离。
+运行完整 AI 面试流程需要有效的 Gemini API Key。
+🚧 后续改进方向
+未来可以进一步加入：
+- 用户认证
+- 多用户 Session
+- 更完整的面试题库
+- 基于 RAG 的知识检索
+- 自适应面试难度
+- 更完善的回答评价体系
+- Interview Analytics Dashboard
+- PostgreSQL Production Persistence
+- Redis Session / Streaming Infrastructure
+- Background Job Processing
+- Production Observability
+- Automated Deployment
+- Cloud Hosting
+📌 项目状态
+AI Interview Agent 是一个以 AI Application Engineering 为核心的全栈项目。
+当前已经覆盖：
+- Domain Modeling
+- Stateful Agent Orchestration
+- LLM Integration
+- Structured Output
 - Tool Calling
 - MCP
-- REST APIs
-- SSE streaming
+- REST API
+- SSE Streaming
 - Persistence
-- React frontend
-- Docker deployment
-The project is intended to demonstrate practical AI application engineering skills rather than only prompt engineering.
+- React Frontend
+- Docker Deployment
+项目重点展示实际 AI 应用开发中的工程能力，而不仅仅是 Prompt Engineering。
 License
-This project is currently provided for learning and portfolio purposes.
+本项目目前主要用于学习、工程实践以及个人 Portfolio 展示。

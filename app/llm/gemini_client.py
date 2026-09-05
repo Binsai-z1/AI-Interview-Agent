@@ -1,18 +1,13 @@
 import os
-
-from google import genai
-from pydantic import BaseModel
-from typing import Any
-
-from google import genai
-from google.genai import types
-
 from typing import Any, Callable
 
-from google.genai import types
 from dotenv import load_dotenv
+from google import genai
+from google.genai import types
+from pydantic import BaseModel
 
 load_dotenv()
+
 
 class GeminiClient:
     def __init__(self, model: str = "gemini-3.6-flash"):
@@ -86,37 +81,6 @@ class GeminiClient:
         self,
         prompt: str,
         tools: list[dict[str, Any]],
-    ) -> str:
-        try:
-            tool = types.Tool(
-                function_declarations=tools
-            )
-
-            config = types.GenerateContentConfig(
-                tools=[tool]
-            )
-
-            response = self.client.models.generate_content(
-                model=self.model,
-                contents=prompt,
-                config=config,
-            )
-
-            if not response.text:
-                raise RuntimeError("Gemini Tool Calling 返回了空响应")
-
-            return response.text
-
-        except Exception as exc:
-            raise RuntimeError(
-                f"Gemini Tool Calling 失败: {exc}"
-            ) from exc
-
-
-    def generate_with_tools(
-        self,
-        prompt: str,
-        tools: list[dict[str, Any]],
         tool_functions: dict[str, Callable],
     ) -> str:
         try:
@@ -137,14 +101,25 @@ class GeminiClient:
                 ]
             )
 
+            contents = [
+                types.Content(
+                    role="user",
+                    parts=[
+                        types.Part.from_text(text=prompt)
+                    ],
+                )
+            ]
+
             response = self.client.models.generate_content(
                 model=self.model,
-                contents=prompt,
+                contents=contents,
                 config=config,
             )
 
             while response.function_calls:
-                tool_results = []
+                contents.append(response.candidates[0].content)
+
+                tool_response_parts = []
 
                 for function_call in response.function_calls:
                     function_name = function_call.name
@@ -155,31 +130,27 @@ class GeminiClient:
                         )
 
                     function = tool_functions[function_name]
-
                     arguments = function_call.args or {}
 
                     result = function(**arguments)
 
-                    tool_results.append(
+                    tool_response_parts.append(
                         types.Part.from_function_response(
                             name=function_name,
-                            response=result,
+                            response={"result": result},
                         )
                     )
 
+                contents.append(
+                    types.Content(
+                        role="user",
+                        parts=tool_response_parts,
+                    )
+                )
+
                 response = self.client.models.generate_content(
                     model=self.model,
-                    contents=[
-                        types.Content(
-                            role="user",
-                            parts=[types.Part.from_text(text=prompt)],
-                        ),
-                        response.candidates[0].content,
-                        types.Content(
-                            role="user",
-                            parts=tool_results,
-                        ),
-                    ],
+                    contents=contents,
                     config=config,
                 )
 
@@ -193,4 +164,109 @@ class GeminiClient:
         except Exception as exc:
             raise RuntimeError(
                 f"Gemini Tool Calling 失败: {exc}"
+            ) from exc
+
+    def generate_with_tools_stream(
+        self,
+        prompt: str,
+        tools: list[dict[str, Any]],
+        tool_functions: dict[str, Callable],
+    ):
+        """
+        Tool Calling + 最终回答 Streaming。
+
+        Tool Calling 阶段先正常执行。
+        当 Tool 返回结果后，使用 Gemini 原生 Streaming
+        生成最终的面试问题。
+        """
+        try:
+            function_declarations = [
+                types.FunctionDeclaration(
+                    name=tool["name"],
+                    description=tool["description"],
+                    parameters=tool["parameters"],
+                )
+                for tool in tools
+            ]
+
+            config = types.GenerateContentConfig(
+                tools=[
+                    types.Tool(
+                        function_declarations=function_declarations
+                    )
+                ]
+            )
+
+            contents = [
+                types.Content(
+                    role="user",
+                    parts=[
+                        types.Part.from_text(text=prompt)
+                    ],
+                )
+            ]
+
+            response = self.client.models.generate_content(
+                model=self.model,
+                contents=contents,
+                config=config,
+            )
+
+            while response.function_calls:
+                contents.append(response.candidates[0].content)
+
+                tool_response_parts = []
+
+                for function_call in response.function_calls:
+                    function_name = function_call.name
+
+                    if function_name not in tool_functions:
+                        raise ValueError(
+                            f"未知 Tool: {function_name}"
+                        )
+
+                    function = tool_functions[function_name]
+                    arguments = function_call.args or {}
+
+                    result = function(**arguments)
+
+                    tool_response_parts.append(
+                        types.Part.from_function_response(
+                            name=function_name,
+                            response={"result": result},
+                        )
+                    )
+
+                contents.append(
+                    types.Content(
+                        role="user",
+                        parts=tool_response_parts,
+                    )
+                )
+
+                response = self.client.models.generate_content(
+                    model=self.model,
+                    contents=contents,
+                    config=config,
+                )
+
+            if not response.text:
+                raise RuntimeError(
+                    "Gemini Tool Calling 返回了空响应"
+                )
+
+            # Tool 已经完成。
+            # 接下来用普通 Streaming 生成最终文本。
+            stream_response = self.client.models.generate_content_stream(
+                model=self.model,
+                contents=contents,
+            )
+
+            for chunk in stream_response:
+                if chunk.text:
+                    yield chunk.text
+
+        except Exception as exc:
+            raise RuntimeError(
+                f"Gemini Tool Calling Streaming 失败: {exc}"
             ) from exc

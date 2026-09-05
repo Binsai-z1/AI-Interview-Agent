@@ -52,22 +52,29 @@ class QuestionBank:
         self,
         topic: str | None = None,
         difficulty: str | None = None,
+        excluded_questions: list[str] | None = None,
     ) -> InterviewQuestion | None:
-
         candidates = self.questions
 
         if topic:
             candidates = [
-                question
-                for question in candidates
-                if question.topic.lower() == topic.lower()
+                q
+                for q in candidates
+                if q.topic.lower() == topic.lower()
             ]
 
         if difficulty:
             candidates = [
-                question
-                for question in candidates
-                if question.difficulty.lower() == difficulty.lower()
+                q
+                for q in candidates
+                if q.difficulty.lower() == difficulty.lower()
+            ]
+
+        if excluded_questions:
+            candidates = [
+                q
+                for q in candidates
+                if q.question not in excluded_questions
             ]
 
         if not candidates:
@@ -82,11 +89,12 @@ question_bank = QuestionBank()
 def get_interview_question(
     topic: str | None = None,
     difficulty: str | None = None,
+    excluded_questions: list[str] | None = None,
 ) -> dict:
-
     question = question_bank.get_question(
         topic=topic,
         difficulty=difficulty,
+        excluded_questions=excluded_questions,
     )
 
     if question is None:
@@ -110,6 +118,7 @@ QUESTION_TOOL_DECLARATION = {
     "description": (
         "从面试题库中获取一道适合当前面试的技术面试题。"
         "可以根据技术主题和难度进行筛选。"
+        "获取下一道题时，应排除已经问过的问题。"
     ),
     "parameters": {
         "type": "object",
@@ -128,6 +137,13 @@ QUESTION_TOOL_DECLARATION = {
                     "hard",
                 ],
                 "description": "题目难度",
+            },
+            "excluded_questions": {
+                "type": "array",
+                "items": {
+                    "type": "string",
+                },
+                "description": "已经问过的问题列表，获取下一题时必须排除这些问题。",
             },
         },
     },

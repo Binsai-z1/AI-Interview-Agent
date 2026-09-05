@@ -13,7 +13,7 @@ class InterviewGraphNodes:
     def __init__(self, llm: LLMClient):
         self.llm = llm
         self.intent_detector = IntentDetector()
-        self.response_generator = ResponseGenerator()
+        self.response_generator = ResponseGenerator(llm)
         self.state_machine = InterviewStateMachine()
         self.evaluator = AnswerEvaluator(llm)
         self.tool_registry = build_tool_registry()
@@ -34,6 +34,11 @@ class InterviewGraphNodes:
         )
 
         response = self.response_generator.generate_first_question()
+
+        stream_callback = state.get("stream_callback")
+
+        if stream_callback:
+            stream_callback(response)
 
         session.current_question = response
         session.current_answer = None
@@ -101,7 +106,33 @@ class InterviewGraphNodes:
             InterviewEvent.FOLLOW_UP_DECIDED,
         )
 
-        response = self.response_generator.generate_follow_up()
+        evaluation = session.last_evaluation or {}
+
+        question = session.current_question or ""
+        answer = session.current_answer or ""
+        missing_points = evaluation.get("missing_points", [])
+
+        stream_callback = state.get("stream_callback")
+
+        if stream_callback:
+            chunks = []
+
+            for chunk in self.response_generator.generate_follow_up_stream(
+                question=question,
+                answer=answer,
+                missing_points=missing_points,
+            ):
+                chunks.append(chunk)
+                stream_callback(chunk)
+
+            response = "".join(chunks)
+
+        else:
+            response = self.response_generator.generate_follow_up(
+                question=question,
+                answer=answer,
+                missing_points=missing_points,
+            )
 
         session.current_question = response
         session.follow_up_count += 1
@@ -131,30 +162,58 @@ class InterviewGraphNodes:
             InterviewEvent.NEXT_QUESTION_DECIDED,
         )
 
+        asked_questions = [
+            item["content"]
+            for item in session.history
+            if item.get("role") == "assistant"
+        ]
+
         prompt = f"""
-你是一名 AI 技术面试官。
+    你是一名 AI 技术面试官。
 
-请从题库中选择下一道适合 AI 应用开发岗位的技术面试题。
+    请从题库中选择下一道适合 AI 应用开发岗位的技术面试题。
 
-这是第 {session.question_count + 1} 道题。
+    这是第 {session.question_count + 1} 道题。
 
-候选人刚才的回答：
-{session.current_answer or "无"}
+    候选人刚才的回答：
+    {session.current_answer or "无"}
 
-请使用 get_interview_question 工具获取下一道题。
+    已经问过的问题：
+    {asked_questions}
 
-优先选择与 LLM、Prompt Engineering、RAG、Agent、
-AI 应用工程相关的题目。
+    请使用 get_interview_question 工具获取下一道题。
 
-获取到题目后，直接输出面试问题。
-不要解释工具调用过程。
-"""
+    要求：
+    1. 必须调用 get_interview_question 工具。
+    2. 将已经问过的问题作为 excluded_questions 参数传给工具。
+    3. 不得选择已经问过的问题。
+    4. 优先选择与 LLM、Prompt Engineering、RAG、Agent、
+    AI 应用工程相关的题目。
+    5. 获取到题目后，直接输出面试问题。
+    6. 不要解释工具调用过程。
+    """
 
-        response = self.llm.generate_with_tools(
-            prompt=prompt,
-            tools=self.tool_registry.get_declarations(),
-            tool_functions=self.tool_registry.get_functions(),
-        )
+        stream_callback = state.get("stream_callback")
+
+        if stream_callback:
+            chunks = []
+
+            for chunk in self.llm.generate_with_tools_stream(
+                prompt=prompt,
+                tools=self.tool_registry.get_declarations(),
+                tool_functions=self.tool_registry.get_functions(),
+            ):
+                chunks.append(chunk)
+                stream_callback(chunk)
+
+            response = "".join(chunks)
+
+        else:
+            response = self.llm.generate_with_tools(
+                prompt=prompt,
+                tools=self.tool_registry.get_declarations(),
+                tool_functions=self.tool_registry.get_functions(),
+            )
 
         session.question_count += 1
         session.current_question = response

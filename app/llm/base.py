@@ -1,4 +1,4 @@
-from typing import Any, Protocol, TypeVar
+from typing import Any, Callable, Protocol, TypeVar
 
 T = TypeVar("T")
 
@@ -21,5 +21,14 @@ class LLMClient(Protocol):
         self,
         prompt: str,
         tools: list[dict[str, Any]],
+        tool_functions: dict[str, Callable],
     ) -> str:
+        ...
+
+    def generate_with_tools_stream(
+        self,
+        prompt: str,
+        tools: list[dict[str, Any]],
+        tool_functions: dict[str, Callable],
+    ):
         ...
