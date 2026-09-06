@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field
 
 
 class CreateSessionRequest(BaseModel):
-    target_question_count: int = Field(default=5, ge=1)
+    target_question_count: int = Field(default=3, ge=1)
 
 
 class CreateSessionResponse(BaseModel):

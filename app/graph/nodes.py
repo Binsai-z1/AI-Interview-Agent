@@ -19,6 +19,11 @@ class InterviewGraphNodes:
         self.tool_registry = build_tool_registry()
 
     def detect_intent(self, state: InterviewGraphState):
+        # 显式系统事件优先；START_INTERVIEW 不再依赖自然语言识别。
+        explicit_event = state.get("event")
+        if explicit_event:
+            return {"event": explicit_event}
+
         event = self.intent_detector.detect(state["message"])
 
         return {
@@ -33,7 +38,14 @@ class InterviewGraphNodes:
             InterviewEvent.START_INTERVIEW,
         )
 
-        response = self.response_generator.generate_first_question()
+        question = self.tool_registry.get_functions()["get_interview_question"](
+            excluded_questions=[],
+        )
+
+        if not question.get("found"):
+            raise ValueError("题库中没有可用的面试题")
+
+        response = question["question"]
 
         stream_callback = state.get("stream_callback")
 
@@ -92,6 +104,16 @@ class InterviewGraphNodes:
 
         evaluation_data = evaluation.model_dump()
         session.last_evaluation = evaluation_data
+
+        # 保存每一道题的完整评估，供最终面试总结使用。
+        session.history.append(
+            {
+                "role": "evaluation",
+                "question": session.current_question,
+                "answer": session.current_answer,
+                "evaluation": evaluation_data,
+            }
+        )
 
         return {
             "session": session,
@@ -166,54 +188,22 @@ class InterviewGraphNodes:
             item["content"]
             for item in session.history
             if item.get("role") == "assistant"
+            and item.get("content")
+            and not item.get("content").startswith("本次面试")
         ]
 
-        prompt = f"""
-    你是一名 AI 技术面试官。
+        question = self.tool_registry.get_functions()["get_interview_question"](
+            excluded_questions=asked_questions,
+        )
 
-    请从题库中选择下一道适合 AI 应用开发岗位的技术面试题。
+        if not question.get("found"):
+            raise ValueError("题库中没有更多未使用的面试题")
 
-    这是第 {session.question_count + 1} 道题。
-
-    候选人刚才的回答：
-    {session.current_answer or "无"}
-
-    已经问过的问题：
-    {asked_questions}
-
-    请使用 get_interview_question 工具获取下一道题。
-
-    要求：
-    1. 必须调用 get_interview_question 工具。
-    2. 将已经问过的问题作为 excluded_questions 参数传给工具。
-    3. 不得选择已经问过的问题。
-    4. 优先选择与 LLM、Prompt Engineering、RAG、Agent、
-    AI 应用工程相关的题目。
-    5. 获取到题目后，直接输出面试问题。
-    6. 不要解释工具调用过程。
-    """
-
+        response = question["question"]
         stream_callback = state.get("stream_callback")
 
         if stream_callback:
-            chunks = []
-
-            for chunk in self.llm.generate_with_tools_stream(
-                prompt=prompt,
-                tools=self.tool_registry.get_declarations(),
-                tool_functions=self.tool_registry.get_functions(),
-            ):
-                chunks.append(chunk)
-                stream_callback(chunk)
-
-            response = "".join(chunks)
-
-        else:
-            response = self.llm.generate_with_tools(
-                prompt=prompt,
-                tools=self.tool_registry.get_declarations(),
-                tool_functions=self.tool_registry.get_functions(),
-            )
+            stream_callback(response)
 
         session.question_count += 1
         session.current_question = response
@@ -250,18 +240,50 @@ class InterviewGraphNodes:
             InterviewEvent.NEXT_QUESTION_DECIDED,
         )
 
-        session.status = self.state_machine.transition(
-            session.status,
-            InterviewEvent.QUESTION_LIMIT_REACHED,
-        )
+        evaluations = [
+            item
+            for item in session.history
+            if item.get("role") == "evaluation"
+            and isinstance(item.get("evaluation"), dict)
+        ]
 
-        response = "本次面试结束，感谢你的参与。"
+        weak_evaluations = [
+            item
+            for item in evaluations
+            if int(item["evaluation"].get("score", 10)) <= 6
+        ]
+        weak_evaluations.sort(
+            key=lambda item: int(item["evaluation"].get("score", 10))
+        )
+        weak_evaluations = weak_evaluations[:3]
+
+        stream_callback = state.get("stream_callback")
+
+        if stream_callback:
+            chunks = []
+            for chunk in self.response_generator.generate_final_report_stream(
+                evaluations=evaluations,
+                weak_evaluations=weak_evaluations,
+            ):
+                chunks.append(chunk)
+                stream_callback(chunk)
+            response = "".join(chunks)
+        else:
+            response = self.response_generator.generate_final_report(
+                evaluations=evaluations,
+                weak_evaluations=weak_evaluations,
+            )
 
         session.history.append(
             {
                 "role": "assistant",
                 "content": response,
             }
+        )
+
+        session.status = self.state_machine.transition(
+            session.status,
+            InterviewEvent.QUESTION_LIMIT_REACHED,
         )
 
         return {

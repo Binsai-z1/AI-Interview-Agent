@@ -52,7 +52,7 @@ function App() {
       setMessages([]);
       setCompleted(false);
 
-      await sendMessage(data.session_id, "开始面试");
+      await sendStartInterview(data.session_id);
     } catch (err) {
       setSessionId(null);
       setMessages([]);
@@ -67,21 +67,28 @@ function App() {
     }
   }
 
-  async function sendMessage(
-    currentSessionId: string,
-    message: string,
+  async function sendStartInterview(currentSessionId: string) {
+    await sendStreamingRequest(
+      `${API_BASE_URL}/sessions/${currentSessionId}/start/stream`,
+      null,
+    );
+  }
+
+  async function sendStreamingRequest(
+    endpoint: string,
+    message: string | null,
   ) {
     let interviewerMessageIndex = -1;
 
     try {
       const response = await fetch(
-        `${API_BASE_URL}/sessions/${currentSessionId}/messages/stream`,
+        endpoint,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
+          body: message === null ? undefined : JSON.stringify({
             message,
           }),
         },
@@ -143,6 +150,7 @@ function App() {
 const decoder = new TextDecoder();
 
 let receivedContent = false;
+let completedByDone = false;
 let buffer = "";
 
 function appendInterviewerContent(content: string) {
@@ -204,6 +212,7 @@ function processSseBuffer() {
         const payload = JSON.parse(data);
 
         if (payload.status === "completed") {
+          completedByDone = true;
           setCompleted(true);
         }
       } catch {
@@ -249,28 +258,11 @@ if (buffer.trim()) {
   processSseBuffer();
 }
 
-      const remaining = decoder.decode();
-
-      if (remaining) {
-        receivedContent = true;
-
-        setMessages((previous) =>
-          previous.map((item, index) =>
-            index === interviewerMessageIndex
-              ? {
-                  ...item,
-                  content: item.content + remaining,
-                }
-              : item,
-          ),
-        );
-      }
-
       /*
        * 如果 HTTP 请求成功，但是服务器没有返回任何内容，
        * 删除刚才创建的空消息，避免 UI 留下空气泡。
        */
-      if (!receivedContent) {
+      if (!receivedContent && !completedByDone) {
         setMessages((previous) =>
           previous.filter(
             (_, index) => index !== interviewerMessageIndex,
@@ -300,6 +292,16 @@ if (buffer.trim()) {
           : "AI 服务请求失败，请稍后重试。",
       );
     }
+  }
+
+  async function sendMessage(
+    currentSessionId: string,
+    message: string,
+  ) {
+    await sendStreamingRequest(
+      `${API_BASE_URL}/sessions/${currentSessionId}/messages/stream`,
+      message,
+    );
   }
 
   async function handleSubmit(

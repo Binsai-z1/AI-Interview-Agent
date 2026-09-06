@@ -15,7 +15,7 @@ def route_after_intent(state: InterviewGraphState):
     if session.status.value in ("cancelled", "completed"):
         return "terminal"
 
-    if event == "start_interview":
+    if event == "start_interview" and session.status.value == "created":
         return "start_interview"
 
     if session.status.value == "waiting_for_answer":

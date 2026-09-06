@@ -134,6 +134,65 @@ def send_message(
     )
 
 
+@app.post("/sessions/{session_id}/start/stream")
+def start_session_stream(
+    session_id: str,
+    db: Session = Depends(get_db),
+):
+    repository = InterviewSessionRepository(db)
+    session = repository.get_by_session_id(session_id)
+
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session 不存在")
+
+    if session.status.value != "created":
+        raise HTTPException(status_code=409, detail="该面试 Session 已经启动或已结束")
+
+    def sse_event(event: str, data: dict) -> str:
+        return (
+            f"event: {event}\n"
+            f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
+        )
+
+    def generate():
+        try:
+            for chunk in agent.start_interview_stream(session):
+                yield sse_event("token", {"content": chunk})
+
+            repository.update(session)
+
+            yield sse_event(
+                "done",
+                {
+                    "status": session.status.value,
+                    "question_count": session.question_count,
+                    "follow_up_count": session.follow_up_count,
+                },
+            )
+        except HTTPException as exc:
+            db.rollback()
+            yield sse_event(
+                "error",
+                {"code": f"HTTP_{exc.status_code}", "message": exc.detail},
+            )
+        except Exception as exc:
+            db.rollback()
+            yield sse_event(
+                "error",
+                {"code": "INTERNAL_ERROR", "message": str(exc)},
+            )
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
 @app.post("/sessions/{session_id}/messages/stream")
 def send_message_stream(
     session_id: str,

@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import random
 
 
 @dataclass
@@ -80,7 +81,7 @@ class QuestionBank:
         if not candidates:
             return None
 
-        return candidates[0]
+        return random.choice(candidates)
 
 
 question_bank = QuestionBank()

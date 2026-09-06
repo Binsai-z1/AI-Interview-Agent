@@ -8,7 +8,7 @@ class InterviewSession(BaseModel):
 
     status: InterviewStatus = InterviewStatus.CREATED
 
-    target_question_count: int = Field(default=5, ge=1)
+    target_question_count: int = Field(default=3, ge=1)
     question_count: int = 0
 
     current_question: str | None = None
